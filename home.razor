@@ -1,0 +1,345 @@
+@page "/"
+@using TalentForgeTestServer.Models
+@using TalentForgeTestServer.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject IMissionService MissionService
+
+@*───────────────────────── STYLES ─────────────────────────*@
+
+<style>
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    button {
+        background-color: blue;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 10px;
+    }
+
+    .visualisation {
+        margin-top: 20px;
+        background-color: #5170f9;
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+    }
+</style>
+
+@*───────────────────────── ÉTAT ───────────────────────────*@
+
+@code {
+    private enum PageMode { None, Mission, Certification }
+    private PageMode mode = PageMode.None;
+
+    private Mission mission = new();
+    private bool missionUpdated;
+    private bool otherChecked;
+
+    #region Listes (conservées telles quelles)
+    private readonly List<string> clients = new() { "Pierre & Vacances","TotalEnergies","ClubMed","Groupe ADP","Vinci environnement",
+        "Vinci Construction","Suez","Saint-Gobain","Renault","Expléo","Korian",
+        "Groupe BPCE","Natixis","Caisse d'Epargne","Engie","Alstom","Crédit Agricole",
+        "Le Groupe La poste","RATP DEV","BIOMERIEUX","Kiabi","hagerGroup","L'Oréal",
+        "Edenred","Ipsen","GRTgaz","Delachaux","Dexia","Le Conservateur","Exail",
+        "Safran","Groupe Savencia" };
+    private readonly List<string> activities = new() { "DevOps","Data Engineer","Data Scientist","Data Analyst",
+        "Architecte","Administrateur Réseaux","Pentester","Chef de Projet" };
+    private readonly List<string> allTechs = new() { "Adobe Acrobat", "Adobe Illustrator", "Adobe Photoshop", "Adobe XD", "Airflow", "Akamai", "Amazon Redshift", "Anaconda",
+    "Android", "Android Studio", "Angular", "Ansible", "Apache Airflow", "Apache Hadoop", "Apache Kafka", "Apache Spark",
+    "API REST", "API SOAP", "AppDynamics", "ArchiMate", "Arduino IDE", "Asana", "Atom", "Aurora", "AutoHotKey", "AWS", "Azure",
+    "Azure AD", "Azure App Services", "Azure Boards", "Azure DevOps", "Azure Functions", "Azure Key Vault", "Azure Logic Apps",
+    "Azure Monitor", "Azure Pipelines", "Azure Repos", "Azure Resource Manager", "Azure SQL Database", "Azure Storage Explorer",
+    "Azure Synapse Analytics", "Backstage", "Bash", "Basic", "Bamboo", "Bitbucket", "Bitnami", "Blender", "Bokeh", "Bootstrap",
+    "Box", "Box Notes", "BMC Remedy", "Burp Suite", "Camunda", "Canva", "C", "C++", "C#", "ChatGPT", "Cisco ASA",
+    "Cisco Packet Tracer", "Cisco Webex", "Citrix", "ClickUp", "CloudFormation", "Cloudflare", "Cloudera", "Clubhouse", "COBOL",
+    "CodePen", "Confluence", "Control-M", "Copilot GitHub", "Copilot M365", "Cortex XSOAR", "Coursera", "Crystal Reports", "CSS",
+    "Cucumber", "Cypress", "D3.js", "Dagster", "Dart", "Databricks", "DataGrip", "Dataiku", "Datadog", "DBeaver", "dbt",
+    "DevTools", "Django", "Discord", "Discourse", "Docker", "Dotnet CLI", ".NET", "Draw.io", "Dropbox", "DVC", "Eclipse",
+    "Eclipse Che", "ELK Stack", "Entra ID", "Envoyer", "ETL Tools", "Excel", "Excalidraw", "FastAPI", "Figma", "Firebase",
+    "Fivetran", "Fluent UI", "Fortinet", "FortiAnalyzer", "FortiGate", "F5 Big-IP", "FigJam", "Front", "GCP", "GIMP", "Git",
+    "GitHub", "GitKraken", "GitLab", "GitOps", "Go", "Gogs", "Gradle", "Grafana", "Graylog", "GSuite", "Groovy",
+    "Google Calendar", "Google Colab", "Google Data Studio", "Google Meet", "Google Sheets", "Hadoop", "HashiCorp Vault",
+    "Haskell", "Helm", "Heroku", "Hibernate", "Horizon", "HP ALM", "HTML", "Icinga", "IntelliCode", "IntelliJ IDEA", "InVision",
+    "Ionic", "iTop", "JBoss", "Java", "JavaScript", "Jenkins", "Jira", "JMeter", "JSON Server", "JWT.io", "Jupyter Notebook",
+    "Julia", "Kali Linux", "Kanbanize", "Kibana", "Kibit", "Kotlin", "Kubernetes", "Kustomize", "LabVIEW", "Liferay", "Lighthouse",
+    "Linux", "LogRhythm", "Logstash", "Looker", "Lucidchart", "macOS", "Make", "Maltego", "MariaDB", "MATLAB", "Mattermost",
+    "Mermaid.js", "Metabase", "Microsoft Loop", "Microsoft Planner", "Microsoft Power BI", "Microsoft Teams",
+    "Microsoft Whiteboard", "Mixpanel", "M365", "Miro", "MongoDB", "Mulesoft", "Nagios", "Neo4j", "Nessus", "NetBeans",
+    "Netlify", "NetScaler", "Notion", "Notepad++", "NumPy", "OBS Studio", "Objective-C", "Okta", "OneNote", "OpenAI Platform",
+    "OpenAPI", "OpenCV", "OpenProject", "OpenSSH", "OpenStack", "Oracle Cloud", "Oracle DB", "Outlook", "Packer", "Pandas",
+    "Parrot OS", "Pascal", "Penpot", "Perl", "pgAdmin", "PHP", "Pip", "Postgres", "Postman", "Power Apps", "Power Automate",
+    "Power BI", "Power Platform", "PowerPoint", "PowerShell", "Prometheus", "Proxmox", "Python", "PythonAnywhere", "PyTorch",
+    "Pydantic", "Pytorch Lightning", "QGIS", "Qlik Sense", "Qualys", "QRadar", "R", "React", "React Native", "Redis",
+    "RedisInsight", "Red Hat", "Report Builder", "Robot Framework", "Rollbar", "RStudio", "Ruby", "Rust", "Sage", "Salesforce",
+    "SAP", "SAP BW", "SAP BO", "SAP HANA", "Sass", "Scala", "Scikit-learn", "Scrapy", "Selenium", "Sentry", "ServiceNow",
+    "SharePoint", "Shell", "Slack", "Snowflake", "SonarQube", "Splunk", "SQL", "SQL Server", "Stack Overflow for Teams",
+    "StackBlitz", "StarUML", "Streamlit", "Stylus", "Superset", "Swift", "Tableau", "Tailwind CSS", "Talend", "TeamCity",
+    "Terraform", "TestLink", "TestRail", "Thunder Client", "Trello", "TrueNAS", "Tmux", "Twilio", "TypeScript", "Ubuntu",
+    "UiPath", "Unifi Controller", "Unity", "Unreal Engine", "UptimeRobot", "UXPin", "Veeam", "Vercel", "VeraCrypt", "VeilleTechno",
+    "Vite", "Visual Basic", "Visual Paradigm", "Visual Studio", "Visual Studio Code", "Vivaldi", "VMware ESXi", "VMware vSphere",
+    "VB.NET", "Weka", "Webflow", "WebStorm", "Whiteboard", "Wireshark", "Windows Server", "WinSCP", "WordPress", "Workday",
+    "Wunderlist", "Xcode", "XMind", "XMLSpy", "Xray", "YAML Tools", "Yellowfin BI", "Zapier", "Zabbix", "Zeplin", "Zeno", "Zod",
+    "Zscaler" };
+    private readonly List<string> certifications = new() { "AI-900 : Microsoft Azure AI Fundamentals",
+    "AI-102 : Designing and Implementing a Microsoft Azure AI Solution",
+    "AZ-900 : Microsoft Azure Fundamentals",
+    "AZ-104 : Microsoft Azure Administrator",
+    "AZ-204 : Developing Solutions for Microsoft Azure",
+    "AZ-220 : Microsoft Azure IoT Developer",
+    "AZ-305 : Designing Microsoft Azure Infrastructure Solutions",
+    "AZ-400 : Designing and Implementing Microsoft DevOps Solutions",
+    "AZ-500 : Microsoft Azure Security Technologies",
+    "AZ-700 : Designing and Implementing Microsoft Azure Networking Solutions",
+    "AZ-800 : Administering Windows Server Hybrid Core Infrastructure",
+    "AZ-801 : Configuring Windows Server Hybrid Advanced Services",
+    "DP-900 : Microsoft Azure Data Fundamentals",
+    "DP-100 : Designing and Implementing a Data Science Solution on Azure",
+    "DP-203 : Data Engineering on Microsoft Azure",
+    "DP-300 - Administering Microsoft Azure SQL Solutions",
+    "DP-420 - Designing and Implementing Cloud-Native Applications Using Microsoft Azure Cosmos DB",
+    "MB-210 - Microsoft Dynamics 365 Sales",
+    "MB-220 - Microsoft Dynamics 365 Marketing",
+    "MB-230 - Microsoft Dynamics 365 Customer Service",
+    "MB-310 - Microsoft Dynamics 365 Finance",
+    "MB-500 - Microsoft Dynamics 365: Finance and Operations Apps Developer",
+    "MB-910 - Microsoft Dynamics 365 Fundamentals",
+    "MS-900 - Microsoft 365 Fundamentals",
+    "MS-100 - Microsoft 365 Identity and Services",
+    "MS-101 - Microsoft 365 Mobility and Security",
+    "MS-102 - Microsoft 365 Administrator",
+    "MS-203 - Microsoft 365 Messaging Administrator",
+    "MS-500 - Microsoft 365 Security Administration",
+    "MS-700 - Managing Microsoft Teams",
+    "PL-900 - Microsoft Power Platform Fundamentals",
+    "PL-100 - Microsoft Power Platform App Maker",
+    "PL-200 - Microsoft Power Platform Functional Consultant",
+    "PL-300 - Microsoft Power BI Data Analyst",
+    "PL-400 - Microsoft Power Platform Developer",
+    "SC-900 - Microsoft Security, Compliance, and Identity Fundamentals",
+    "SC-200 - Microsoft Security Operations Analyst",
+    "SC-300 - Microsoft Identity and Access Administrator",
+    "SC-400 - Microsoft Information Protection Administrator",
+    "MD-100 - Windows Client",
+    "MD-101 - Managing Modern Desktops", };
+    #endregion
+
+    protected override void OnInitialized()
+    {
+        mission = MissionService.GetMission();
+        mission.Technologies ??= new List<string> { "" };
+        if (mission.Technologies.Count == 0)
+            mission.Technologies.Add("");
+    }
+
+    /* --- Actions de sélection du mode --- */
+    private void ChooseMission() { mode = PageMode.Mission; missionUpdated = false; }
+    private void ChooseCertification() { mode = PageMode.Certification; missionUpdated = false; }
+
+    /* --- Bouton Visualiser --- */
+    private void Visualiser() => missionUpdated = true;
+
+    /* --- Bouton Mettre à jour --- */
+    private void UpdateMission()
+    {
+        MissionService.UpdateMission(mission);
+        missionUpdated = false;          // pas d’affichage automatique
+    }
+
+    /* --- Gestion des technos dynamiques --- */
+    private void AddTech() { if (mission.Technologies.Count < 8) mission.Technologies.Add(""); }
+    private void RemoveTech(int i) { if (mission.Technologies.Count > 1) mission.Technologies.RemoveAt(i); }
+    private void OnTechChanged(ChangeEventArgs e, int i)
+    {
+        if (i >= 0 && i < mission.Technologies.Count)
+            mission.Technologies[i] = e.Value?.ToString() ?? "";
+    }
+}
+
+@*───────────────────────── UI : CHOIX INITIAL ─────────────────────────*@
+
+@if (mode == PageMode.None)
+{
+    <div class="d-flex gap-4 mt-4">
+        <button @onclick="ChooseMission">Mise à jour Mission</button>
+        <button @onclick="ChooseCertification">Mise à jour Certification</button>
+    </div>
+}
+
+@*───────────────────────── FORMULAIRE MISSION ─────────────────────────*@
+
+@if (mode == PageMode.Mission)
+{
+    <EditForm Model="@mission">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <!-- Client -->
+        <div class="form-group">
+            <label>Client :</label>
+            <InputSelect class="form-select" @bind-Value="mission.Client">
+                @foreach (var c in clients)
+                {
+                    <option value="@c">@c</option>
+                }
+            </InputSelect>
+        </div>
+
+        <!-- Activité -->
+        <div class="form-group">
+            <label>Activité :</label>
+            <InputSelect class="form-select" @bind-Value="mission.Activity">
+                @foreach (var a in activities)
+                {
+                    <option value="@a">@a</option>
+                }
+            </InputSelect>
+        </div>
+
+        <!-- Technologies dynamiques -->
+        <div class="form-group">
+            <label>Technologies utilisées :</label>
+            @for (int i = 0; i < mission.Technologies.Count; i++)
+            {
+                var idx = i;
+                <div class="d-flex align-items-center mb-2" @key=idx>
+                    <select class="form-select me-2"
+                            value="@mission.Technologies[idx]"
+                            @onchange="e => OnTechChanged(e, idx)">
+                        <option value="">-- Sélectionner --</option>
+                        @foreach (var t in allTechs)
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            @onclick="@(() => RemoveTech(idx))"
+                            disabled="@(mission.Technologies.Count == 1)">
+                        ❌
+                    </button>
+                </div>
+            }
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    @onclick="AddTech" disabled="@(mission.Technologies.Count >= 8)">
+                ➕ Ajouter
+            </button>
+        </div>
+
+        <!-- Dates -->
+        <div class="form-group">
+            <label>Date de début :</label>
+            <InputDate class="form-control" @bind-Value="mission.StartDate" />
+        </div>
+        <div class="form-group">
+            <label>Date de fin :</label>
+            <InputDate class="form-control" @bind-Value="mission.EndDate" />
+        </div>
+
+        <!-- Boutons -->
+        <div class="d-flex gap-3 mt-3">
+            <button type="button" @onclick="Visualiser">Visualiser</button>
+            <button type="button" @onclick="UpdateMission">Mettre à jour</button>
+
+            <!-- raccourci vers Certification -->
+            <button type="button"
+                    class="btn btn-outline-secondary ms-auto"
+                    @onclick="ChooseCertification">
+                ➡️ Certification
+            </button>
+        </div>
+
+    </EditForm>
+}
+
+@*────────────────────── FORMULAIRE CERTIFICATION ───────────────────────*@
+
+@if (mode == PageMode.Certification)
+{
+    <EditForm Model="@mission">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <!-- Sélecteur de certification -->
+        <div class="form-group">
+            <label>Certifications :</label>
+            <InputSelect class="form-select" @bind-Value="mission.CertificationName">
+                <option value="">-- Sélectionner --</option>
+                @foreach (var cert in certifications)
+                {
+                    <option value="@cert">@cert</option>
+                }
+            </InputSelect>
+        </div>
+
+        <!-- Nouvelle ligne : date d'obtention -->
+        <div class="form-group">
+            <label>Date d'obtention :</label>
+            <InputDate class="form-control"
+                       @bind-Value="mission.CertificationDate" />
+        </div>
+
+        <!-- Case Autre -->
+        <div class="form-check mb-2">
+            <InputCheckbox class="form-check-input" id="chkOther" @bind-Value="otherChecked" />
+            <label class="form-check-label" for="chkOther">Autre certification</label>
+        </div>
+
+        @if (otherChecked)
+        {
+            <div class="form-group">
+                <label>ID :</label>
+                <InputText class="form-control" @bind-Value="mission.CertificationId" />
+            </div>
+            <div class="form-group">
+                <label>Intitulé :</label>
+                <InputText class="form-control" @bind-Value="mission.CertificationCustomTitle" />
+            </div>
+        }
+
+        <!-- Boutons -->
+        <div class="d-flex gap-3 mt-3">
+            <button type="button" @onclick="Visualiser">Visualiser</button>
+            <button type="button" @onclick="UpdateMission">Mettre à jour</button>
+
+            <!-- raccourci vers Mission -->
+            <button type="button"
+                    class="btn btn-outline-secondary ms-auto"
+                    @onclick="ChooseMission">
+                ➡️ Mission
+            </button>
+        </div>
+
+    </EditForm>
+}
+
+@*───────────────────────── VISUALISATION ───────────────────────────────*@
+
+@if (missionUpdated && mode == PageMode.Mission)
+{
+    <div class="visualisation">
+        <h4>Mission</h4>
+        <p><strong>Client :</strong> @mission.Client</p>
+        <p><strong>Activité :</strong> @mission.Activity</p>
+        <p><strong>Technologies :</strong> @string.Join(", ", mission.Technologies.Where(t => !string.IsNullOrWhiteSpace(t)))</p>
+        <p><strong>Début :</strong> @mission.StartDate.ToShortDateString()</p>
+        <p><strong>Fin :</strong> @mission.EndDate.ToShortDateString()</p>
+    </div>
+}
+@if (missionUpdated && mode == PageMode.Certification)
+{
+    <div class="visualisation">
+        <h4>Certification</h4>
+        <p>
+            <strong>Nom :</strong>
+            @(string.IsNullOrWhiteSpace(mission.CertificationName)
+                ? $"{mission.CertificationId} – {mission.CertificationCustomTitle}"
+                : mission.CertificationName)
+        </p>
+        
+        
+    </div>
+}
+
