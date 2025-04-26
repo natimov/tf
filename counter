@@ -1,0 +1,41 @@
+@page "/counter"
+@using System.IO
+@using TalentForgeTestServer.Utils
+@using TalentForgeTestServer.Services          <!-- new -->
+@inject IWebHostEnvironment Env
+@inject IMissionService MissionService       
+
+<h3>CV de : </h3>
+
+@if (string.IsNullOrEmpty(convertedHtml))
+{
+    <p><em>Chargement du CV…</em></p>
+}
+else
+{
+    <div style="margin-top:20px; padding:10px; border:1px solid #ccc;">
+        @((MarkupString)convertedHtml)
+    </div>
+}
+
+@code {
+    private string convertedHtml = "";
+
+    protected override void OnInitialized()
+    {
+        var templatePath = Path.Combine(
+            Env.WebRootPath, "Templates", "Exakis Nelite - CV SULINON Lisa - 2025.01.docx");
+
+        var mission = MissionService.GetMission();     // ← récupère le client choisi
+
+        try
+        {
+            convertedHtml = DocxConverter
+                .ConvertDocxWithMission(templatePath, mission);   // ← nouvelle méthode
+        }
+        catch (Exception ex)
+        {
+            convertedHtml = $"<b>Erreur :</b> {ex.Message}";
+        }
+    }
+}
