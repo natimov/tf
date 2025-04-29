@@ -1,0 +1,485 @@
+@page "/"
+@using TalentForgeTestServer.Models
+@using TalentForgeTestServer.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject IMissionService MissionService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavManager
+@using System.Text.Json
+
+
+
+<style>
+    .visualisation {
+    background-color: #e7f1ff; /* Fond bleu clair */
+    color: #000;
+    padding: 20px;
+    border-radius: 10px;
+    }
+
+    .btn-certification {
+    background-color: #6c757d;
+    color: #fff;
+    border: none;
+    }
+
+    .btn-certification:hover {
+    background-color: #5a6268;
+    }
+</style>
+
+<div class="container py-5">
+    @*──────────────────────── UI : CHOIX INITIAL ────────────────────────*@
+    @if (mode == PageMode.None)
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <div class="btn-group btn-group-lg">
+                    <button type="button" class="btn btn-primary" @onclick="ChooseMission">
+                        Mise à jour Mission
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-certification" @onclick="ChooseCertification">
+                        Mise à jour Certification
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @*──────────────────── FORMULAIRE MISSION ─────────────────────*@
+    @if (mode == PageMode.Mission)
+    {
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Mise à jour Mission</h5></div>
+            <div class="card-body">
+                <EditForm Model="@mission" OnValidSubmit="UpdateMission">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Client</label>
+                            <InputSelect class="form-select" @bind-Value="mission.Client">
+                                <option value="">-- Sélectionner --</option>
+                                @foreach (var c in clients)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Activité</label>
+                            <InputSelect class="form-select" @bind-Value="mission.Activity">
+                                <option value="">-- Sélectionner --</option>
+                                @foreach (var a in activities)
+                                {
+                                    <option value="@a">@a</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Titre de la mission</label>
+                            <InputText class="form-control"
+                            @bind-Value="mission.MissionTitle"
+                            placeholder="Titre de la mission" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Détail de la mission</label>
+                            <textarea @ref="detailsRef"
+                            id="missionDetails"
+                            class="form-control"
+                            @bind="mission.MissionDetails"
+                            rows="6"
+                            placeholder="Description complète de la mission">
+                            </textarea>
+                        </div>
+
+
+
+                        <div class="col-12">
+                            <label class="form-label">Technologies utilisées</label>
+
+                            @for (int i = 0; i < mission.Technologies.Count; i++)
+                            {
+                                var idx = i;
+                                <div class="input-group mb-2" @key=idx>
+                                    <select class="form-select"
+                                    value="@mission.Technologies[idx]"
+                                    @onchange="e => OnTechChanged(e, idx)">
+                                        <option value="">-- Sélectionner --</option>
+                                        @foreach (var t in allTechs)
+                                        {
+                                            <option value="@t">@t</option>
+                                        }
+                                    </select>
+                                    <button type="button"
+                                    class="btn btn-outline-danger"
+                                    @onclick="() => RemoveTech(idx)"
+                                    disabled="@(mission.Technologies.Count == 1)">
+                                        ❌
+                                    </button>
+                                </div>
+                            }
+
+                            <button type="button" class="btn btn-outline-primary"
+                            @onclick="AddTech"
+                            disabled="@(mission.Technologies.Count >= 8)">
+                                ➕ Ajouter une techno
+                            </button>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date de début</label>
+                            <InputDate class="form-control" @bind-Value="mission.StartDate" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date de fin</label>
+                            <InputDate class="form-control" @bind-Value="mission.EndDate" />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary"
+                        @onclick="ChooseCertification">
+                            Certification →
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-outline-info me-2"
+                            @onclick="Visualiser">
+                                Visualiser
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                Mettre à jour
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+                
+
+            </div>
+        </div>
+    }
+
+    @*───────────────── FORMULAIRE CERTIFICATION ─────────────────*@
+    @if (mode == PageMode.Certification)
+    {
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">Mise à jour Certification</h5></div>
+            <div class="card-body">
+                <EditForm Model="@mission" OnValidSubmit="UpdateMission">
+
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Certifications</label>
+                            <InputSelect class="form-select" @bind-Value="mission.CertificationName">
+                                <option value="">-- Sélectionner --</option>
+                                @foreach (var cert in certifications)
+                                {
+                                    <option value="@cert">@cert</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" id="chkOther" @bind-Value="otherChecked" />
+                                <label class="form-check-label" for="chkOther">Autre certification</label>
+                            </div>
+                        </div>
+
+                        @if (otherChecked)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label">ID</label>
+                                <InputText class="form-control" @bind-Value="mission.CertificationId" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Intitulé</label>
+                                <InputText class="form-control" @bind-Value="mission.CertificationCustomTitle" />
+                            </div>
+                        }
+
+                        <div class="col-md-6">
+                            <label class="form-label">Date d’obtention</label>
+                            <InputDate class="form-control" @bind-Value="mission.CertificationDate" />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-primary btn-certification"
+                        @onclick="ChooseMission">
+                            ← Mission
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-outline-info me-2"
+                            @onclick="Visualiser">
+                                Visualiser
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                Mettre à jour
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @*──────────────────── VISUALISATION ─────────────────────*@
+    @if (missionUpdated && mode == PageMode.Mission)
+    {
+        <div class="visualisation mt-3">
+            <!-- Client en majuscules et en orange -->
+            <p style="color: orange; text-transform: uppercase; font-weight: bold; margin-bottom: .5rem;">
+                @mission.Client
+            </p>
+
+            <!-- Période sur une seule ligne -->
+            <p style="margin-bottom: .5rem;">
+                <strong>Période :</strong>
+                @mission.StartDate.ToString("MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"))
+                –
+                @(mission.EndDate.Date == DateTime.Today
+                        ? "Aujourd’hui"
+                        : mission.EndDate.ToString("MMMM yyyy", new System.Globalization.CultureInfo("fr-FR")))
+            </p>
+
+            <!-- Rôle + Activité -->
+            <p style="margin-bottom: .5rem;">
+                <strong>Rôle :</strong> @mission.Activity
+            </p>
+
+            <!-- Mission -->
+            <p style="margin-bottom: .25rem;">
+                <strong>Mission :</strong> @mission.MissionTitle
+            </p>
+
+
+
+
+            @if (!string.IsNullOrWhiteSpace(mission.MissionDetails))
+            {
+                <ul style="margin-top:0; margin-bottom:1rem;">
+                    @foreach (var raw in mission.MissionDetails.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        // on est déjà dans un bloc C#, on n’a pas besoin de @{}
+                        var cleaned = raw.TrimStart();
+                        if (cleaned.StartsWith("• "))
+                        {
+                            cleaned = cleaned.Substring(2);
+                        }
+
+                        <li>@cleaned</li>
+                    }
+                </ul>
+            }
+
+
+
+
+
+            <!-- Technos utilisées -->
+            <p>
+                <strong>Technos :</strong>
+                @string.Join(", ",
+                                  mission.Technologies.Where(t => !string.IsNullOrWhiteSpace(t)))
+            </p>
+        </div>
+    }
+
+    @if (missionUpdated && mode == PageMode.Certification)
+    {
+        <div class="visualisation mt-3">
+            <h5>Récapitulatif Certification</h5>
+            <p>
+                <strong>Nom :</strong>
+                @(string.IsNullOrWhiteSpace(mission.CertificationName)
+                                ? $"{mission.CertificationId} – {mission.CertificationCustomTitle}"
+                                : mission.CertificationName)
+            </p>
+            <p><strong>Date d’obtention :</strong> @mission.CertificationDate.ToShortDateString()</p>
+        </div>
+    }
+</div>
+
+@code {
+    private enum PageMode { None, Mission, Certification }
+    private PageMode mode = PageMode.None;
+
+    private Mission mission = new();
+    private bool missionUpdated;
+    private bool otherChecked;
+    // juste en dessous de `private bool otherChecked;`
+    private bool otherClientChecked;
+
+
+    #region Listes (inchangées)
+    private readonly List<string> clients = new()
+    {
+
+    "Pierre & Vacances","TotalEnergies","ClubMed","Groupe ADP","Vinci environnement",
+        "Vinci Construction","Suez","Saint-Gobain","Renault","Expléo","Korian",
+        "Groupe BPCE","Natixis","Caisse d'Epargne","Engie","Alstom","Crédit Agricole",
+        "Le Groupe La poste","RATP DEV","BIOMERIEUX","Kiabi","hagerGroup","L'Oréal",
+        "Edenred","Ipsen","GRTgaz","Delachaux","Dexia","Le Conservateur","Exail",
+        "Safran","Groupe Savencia"};
+
+    private readonly List<string> activities = new() { 
+        "DevOps","Data Engineer","Data Scientist","Data Analyst",
+        "Architecte","Administrateur Réseaux","Pentester","Chef de Projet" };
+
+    private readonly List<string> allTechs = new() { 
+    "Adobe Acrobat", "Adobe Illustrator", "Adobe Photoshop", "Adobe XD", "Airflow", "Akamai", "Amazon Redshift", "Anaconda",
+    "Android", "Android Studio", "Angular", "Ansible", "Apache Airflow", "Apache Hadoop", "Apache Kafka", "Apache Spark",
+    "API REST", "API SOAP", "AppDynamics", "ArchiMate", "Arduino IDE", "Asana", "Atom", "Aurora", "AutoHotKey", "AWS", "Azure",
+    "Azure AD", "Azure App Services", "Azure Boards", "Azure DevOps", "Azure Functions", "Azure Key Vault", "Azure Logic Apps",
+    "Azure Monitor", "Azure Pipelines", "Azure Repos", "Azure Resource Manager", "Azure SQL Database", "Azure Storage Explorer",
+    "Azure Synapse Analytics", "Backstage", "Bash", "Basic", "Bamboo", "Bitbucket", "Bitnami", "Blender", "Bokeh", "Bootstrap",
+    "Box", "Box Notes", "BMC Remedy", "Burp Suite", "Camunda", "Canva", "C", "C++", "C#", "ChatGPT", "Cisco ASA",
+    "Cisco Packet Tracer", "Cisco Webex", "Citrix", "ClickUp", "CloudFormation", "Cloudflare", "Cloudera", "Clubhouse", "COBOL",
+    "CodePen", "Confluence", "Control-M", "Copilot GitHub", "Copilot M365", "Cortex XSOAR", "Coursera", "Crystal Reports", "CSS",
+    "Cucumber", "Cypress", "D3.js", "Dagster", "Dart", "Databricks", "DataGrip", "Dataiku", "Datadog", "DBeaver", "dbt",
+    "DevTools", "Django", "Discord", "Discourse", "Docker", "Dotnet CLI", ".NET", "Draw.io", "Dropbox", "DVC", "Eclipse",
+    "Eclipse Che", "ELK Stack", "Entra ID", "Envoyer", "ETL Tools", "Excel", "Excalidraw", "FastAPI", "Figma", "Firebase",
+    "Fivetran", "Fluent UI", "Fortinet", "FortiAnalyzer", "FortiGate", "F5 Big-IP", "FigJam", "Front", "GCP", "GIMP", "Git",
+    "GitHub", "GitKraken", "GitLab", "GitOps", "Go", "Gogs", "Gradle", "Grafana", "Graylog", "GSuite", "Groovy",
+    "Google Calendar", "Google Colab", "Google Data Studio", "Google Meet", "Google Sheets", "Hadoop", "HashiCorp Vault",
+    "Haskell", "Helm", "Heroku", "Hibernate", "Horizon", "HP ALM", "HTML", "Icinga", "IntelliCode", "IntelliJ IDEA", "InVision",
+    "Ionic", "iTop", "JBoss", "Java", "JavaScript", "Jenkins", "Jira", "JMeter", "JSON Server", "JWT.io", "Jupyter Notebook",
+    "Julia", "Kali Linux", "Kanbanize", "Kibana", "Kibit", "Kotlin", "Kubernetes", "Kustomize", "LabVIEW", "Liferay", "Lighthouse",
+    "Linux", "LogRhythm", "Logstash", "Looker", "Lucidchart", "macOS", "Make", "Maltego", "MariaDB", "MATLAB", "Mattermost",
+    "Mermaid.js", "Metabase", "Microsoft Loop", "Microsoft Planner", "Microsoft Power BI", "Microsoft Teams",
+    "Microsoft Whiteboard", "Mixpanel", "M365", "Miro", "MongoDB", "Mulesoft", "Nagios", "Neo4j", "Nessus", "NetBeans",
+    "Netlify", "NetScaler", "Notion", "Notepad++", "NumPy", "OBS Studio", "Objective-C", "Okta", "OneNote", "OpenAI Platform",
+    "OpenAPI", "OpenCV", "OpenProject", "OpenSSH", "OpenStack", "Oracle Cloud", "Oracle DB", "Outlook", "Packer", "Pandas",
+    "Parrot OS", "Pascal", "Penpot", "Perl", "pgAdmin", "PHP", "Pip", "Postgres", "Postman", "Power Apps", "Power Automate",
+    "Power BI", "Power Platform", "PowerPoint", "PowerShell", "Prometheus", "Proxmox", "Python", "PythonAnywhere", "PyTorch",
+    "Pydantic", "Pytorch Lightning", "QGIS", "Qlik Sense", "Qualys", "QRadar", "R", "React", "React Native", "Redis",
+    "RedisInsight", "Red Hat", "Report Builder", "Robot Framework", "Rollbar", "RStudio", "Ruby", "Rust", "Sage", "Salesforce",
+    "SAP", "SAP BW", "SAP BO", "SAP HANA", "Sass", "Scala", "Scikit-learn", "Scrapy", "Selenium", "Sentry", "ServiceNow",
+    "SharePoint", "Shell", "Slack", "Snowflake", "SonarQube", "Splunk", "SQL", "SQL Server", "Stack Overflow for Teams",
+    "StackBlitz", "StarUML", "Streamlit", "Stylus", "Superset", "Swift", "Tableau", "Tailwind CSS", "Talend", "TeamCity",
+    "Terraform", "TestLink", "TestRail", "Thunder Client", "Trello", "TrueNAS", "Tmux", "Twilio", "TypeScript", "Ubuntu",
+    "UiPath", "Unifi Controller", "Unity", "Unreal Engine", "UptimeRobot", "UXPin", "Veeam", "Vercel", "VeraCrypt", "VeilleTechno",
+    "Vite", "Visual Basic", "Visual Paradigm", "Visual Studio", "Visual Studio Code", "Vivaldi", "VMware ESXi", "VMware vSphere",
+    "VB.NET", "Weka", "Webflow", "WebStorm", "Whiteboard", "Wireshark", "Windows Server", "WinSCP", "WordPress", "Workday",
+    "Wunderlist", "Xcode", "XMind", "XMLSpy", "Xray", "YAML Tools", "Yellowfin BI", "Zapier", "Zabbix", "Zeplin", "Zeno", "Zod",
+    "Zscaler"};
+    private readonly List<string> certifications = new()
+    {   
+    "AI-900 : Microsoft Azure AI Fundamentals",
+    "AI-102 : Designing and Implementing a Microsoft Azure AI Solution",
+    "AZ-900 : Microsoft Azure Fundamentals",
+    "AZ-104 : Microsoft Azure Administrator",
+    "AZ-204 : Developing Solutions for Microsoft Azure",
+    "AZ-220 : Microsoft Azure IoT Developer",
+    "AZ-305 : Designing Microsoft Azure Infrastructure Solutions",
+    "AZ-400 : Designing and Implementing Microsoft DevOps Solutions",
+    "AZ-500 : Microsoft Azure Security Technologies",
+    "AZ-700 : Designing and Implementing Microsoft Azure Networking Solutions",
+    "AZ-800 : Administering Windows Server Hybrid Core Infrastructure",
+    "AZ-801 : Configuring Windows Server Hybrid Advanced Services",
+    "DP-900 : Microsoft Azure Data Fundamentals",
+    "DP-100 : Designing and Implementing a Data Science Solution on Azure",
+    "DP-203 : Data Engineering on Microsoft Azure",
+    "DP-300 - Administering Microsoft Azure SQL Solutions",
+    "DP-420 - Designing and Implementing Cloud-Native Applications Using Microsoft Azure Cosmos DB",
+    "MB-210 - Microsoft Dynamics 365 Sales",
+    "MB-220 - Microsoft Dynamics 365 Marketing",
+    "MB-230 - Microsoft Dynamics 365 Customer Service",
+    "MB-310 - Microsoft Dynamics 365 Finance",
+    "MB-500 - Microsoft Dynamics 365: Finance and Operations Apps Developer",
+    "MB-910 - Microsoft Dynamics 365 Fundamentals",
+    "MS-900 - Microsoft 365 Fundamentals",
+    "MS-100 - Microsoft 365 Identity and Services",
+    "MS-101 - Microsoft 365 Mobility and Security",
+    "MS-102 - Microsoft 365 Administrator",
+    "MS-203 - Microsoft 365 Messaging Administrator",
+    "MS-500 - Microsoft 365 Security Administration",
+    "MS-700 - Managing Microsoft Teams",
+    "PL-900 - Microsoft Power Platform Fundamentals",
+    "PL-100 - Microsoft Power Platform App Maker",
+    "PL-200 - Microsoft Power Platform Functional Consultant",
+    "PL-300 - Microsoft Power BI Data Analyst",
+    "PL-400 - Microsoft Power Platform Developer",
+    "SC-900 - Microsoft Security, Compliance, and Identity Fundamentals",
+    "SC-200 - Microsoft Security Operations Analyst",
+    "SC-300 - Microsoft Identity and Access Administrator",
+    "SC-400 - Microsoft Information Protection Administrator",
+    "MD-100 - Windows Client",
+    "MD-101 - Managing Modern Desktops"};
+    #endregion
+
+    protected override void OnInitialized()
+    {
+        mission = MissionService.GetMission();
+        mission.Technologies ??= new List<string> { "" };
+        if (mission.Technologies.Count == 0)
+            mission.Technologies.Add("");
+    }
+    private void ChooseMission()
+    {
+        mode = PageMode.Mission;
+        missionUpdated = false;
+
+        // S’il n’y a pas encore de texte, on pré-insère immédiatement la première puce
+        if (string.IsNullOrWhiteSpace(mission.MissionDetails))
+        {
+            mission.MissionDetails = "• ";
+        }
+
+        // Pour que le JS se ré-initialise proprement
+        listInitialized = false;
+    }
+   
+
+
+    private void ChooseCertification() { mode = PageMode.Certification; missionUpdated = false; }
+    private void Visualiser() { missionUpdated = true; }
+    private void UpdateMission()
+    {
+        MissionService.UpdateMission(mission);
+        missionUpdated = false;
+    }
+
+    private void AddTech() { if (mission.Technologies.Count < 8) mission.Technologies.Add(""); }
+    private void RemoveTech(int i) { if (mission.Technologies.Count > 1) mission.Technologies.RemoveAt(i); }
+
+    private void OnTechChanged(ChangeEventArgs e, int i)
+    {
+        if (i >= 0 && i < mission.Technologies.Count)
+            mission.Technologies[i] = e.Value?.ToString() ?? "";
+    }
+    // pour JS interop
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private ElementReference detailsRef;
+
+    private bool listInitialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // n’interpellez le JS que si :
+        // - on est en mode Mission
+        // - et qu’on n’a pas déjà initialisé la liste
+        if (mode == PageMode.Mission && !listInitialized)
+        {
+            listInitialized = true;
+            try
+            {
+                await JS.InvokeVoidAsync("initMissionDetailsList", detailsRef);
+            }
+            catch
+            {
+                // on ignore les erreurs, on a déjà protégé le JS
+            }
+        }
+    }
+
+
+}
